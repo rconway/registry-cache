@@ -20,8 +20,14 @@ elif [ "$1" = "restart" ]; then
   docker-compose pull
   docker-compose down
   docker-compose up -d
+  echo "Waiting for init containers to complete..."
+  docker wait nexus-init-pre nexus-init-post 2>/dev/null || true
+  docker rm nexus-init-pre nexus-init-post 2>/dev/null || true
 else
   echo "Running..."
   docker-compose pull
   docker-compose up -d
+  echo "Waiting for init containers to complete..."
+  docker wait nexus-init-pre nexus-init-post 2>/dev/null || true
+  docker rm nexus-init-pre nexus-init-post 2>/dev/null || true
 fi

@@ -34,6 +34,8 @@ services:
       nexus:
         condition: service_started
     entrypoint: ["/bin/sh", "/config/init-post.sh"]
+    environment:
+      - FORCE_REPO_UPDATE=${FORCE_REPO_UPDATE:-false}
     networks:
       - registry-cache
     volumes:

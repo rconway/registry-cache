@@ -56,7 +56,26 @@ else
 fi
 
 ###############################################################################
-# 2. Enable anonymous access
+# 2. Accept Community Edition EULA (required for CE 3.77.0+)
+###############################################################################
+echo "Accepting Community Edition EULA..."
+
+EULA_DATA=$(curl -sf -u "$AUTH" "$NEXUS_URL/service/rest/v1/system/eula")
+if echo "$EULA_DATA" | jq -e '.accepted == false' >/dev/null 2>&1; then
+  # Modify the response to set accepted=true and POST it back
+  EULA_ACCEPT=$(echo "$EULA_DATA" | jq '.accepted = true')
+  curl -sf -u "$AUTH" \
+    -X POST "$NEXUS_URL/service/rest/v1/system/eula" \
+    -H "Content-Type: application/json" \
+    -d "$EULA_ACCEPT" \
+    >/dev/null 2>&1 || echo "EULA acceptance failed."
+  echo "EULA accepted."
+else
+  echo "EULA already accepted."
+fi
+
+###############################################################################
+# 3. Enable anonymous access
 ###############################################################################
 echo "Enabling anonymous access..."
 curl -sf -u "$AUTH" \
@@ -66,7 +85,7 @@ curl -sf -u "$AUTH" \
   || echo "Anonymous access may already be enabled."
 
 ###############################################################################
-# 3. Wait for security subsystem
+# 4. Wait for security subsystem
 ###############################################################################
 echo "Waiting for Nexus security subsystem..."
 until curl -sf -u "$AUTH" "$NEXUS_URL/service/rest/v1/security/realms/active" | jq -e . >/dev/null 2>&1; do
@@ -74,7 +93,7 @@ until curl -sf -u "$AUTH" "$NEXUS_URL/service/rest/v1/security/realms/active" | 
 done
 
 ###############################################################################
-# 4. Activate Docker realms
+# 5. Activate Docker realms
 ###############################################################################
 echo "Configuring security realms..."
 
@@ -88,7 +107,7 @@ curl -sf -u "$AUTH" \
   || echo "Realm update failed."
 
 ###############################################################################
-# 5. Render templates
+# 6. Render templates
 ###############################################################################
 mkdir -p "$WORK_DIR"
 
@@ -117,7 +136,7 @@ for FILE in $TEMPLATE_DIR/*.json*; do
 done
 
 ###############################################################################
-# 6. Reconcile repositories
+# 7. Reconcile repositories
 ###############################################################################
 DESIRED=$(ls "$WORK_DIR" | sed 's/.json//')
 ACTUAL=$(curl -sf -u "$AUTH" "$NEXUS_URL/service/rest/v1/repositories" | jq -r '.[].name')
@@ -148,7 +167,7 @@ repo_type() {
 }
 
 ###############################################################################
-# 6b. ORDERING FIX — sort repos by type
+# 7b. ORDERING FIX — sort repos by type
 ###############################################################################
 PROXY_REPOS=""
 GROUP_REPOS=""
@@ -168,16 +187,24 @@ done
 ORDERED="$HOSTED_REPOS $PROXY_REPOS $GROUP_REPOS"
 
 ###############################################################################
-# 6c. Create/update desired repos in correct order
+# 7c. Create/update desired repos in correct order
 ###############################################################################
+# Set FORCE_REPO_UPDATE=true to recreate existing repos (deletes cached data)
+FORCE_UPDATE="${FORCE_REPO_UPDATE:-false}"
+
 for REPO in $ORDERED; do
   FILE="$WORK_DIR/$REPO.json"
   TYPE=$(repo_type "$FILE")
 
   if echo "$ACTUAL" | grep -q "^$REPO$"; then
-    echo "Updating repo: $REPO"
-    curl -s -u "$AUTH" -X DELETE "$NEXUS_URL/service/rest/v1/repositories/$REPO"
-    sleep 1
+    if [ "$FORCE_UPDATE" = "true" ]; then
+      echo "Force updating repo: $REPO (will lose cached data)"
+      curl -s -u "$AUTH" -X DELETE "$NEXUS_URL/service/rest/v1/repositories/$REPO"
+      sleep 1
+    else
+      echo "Repo already exists: $REPO (skipping, set FORCE_REPO_UPDATE=true to update)"
+      continue
+    fi
   else
     echo "Creating repo: $REPO"
   fi

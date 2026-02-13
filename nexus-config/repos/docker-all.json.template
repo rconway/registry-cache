@@ -15,26 +15,5 @@
     "v1Enabled": false,
     "forceBasicAuth": false,
     "httpPort": 5000
-  },
-  "dockerProxy": {
-    "indexType": "REGISTRY",
-    "indexUrl": "https://registry-1.docker.io/"
-  },
-  "proxy": {
-    "remoteUrl": "https://registry-1.docker.io",
-    "contentMaxAge": 1440,
-    "metadataMaxAge": 0
-  },
-  "httpClient": {
-    "blocked": false,
-    "autoBlock": true,
-    "connection": {
-      "retries": 3,
-      "userAgentSuffix": "docker-all-group"
-    }
-  },
-  "negativeCache": {
-    "enabled": true,
-    "timeToLive": 1440
   }
 }
