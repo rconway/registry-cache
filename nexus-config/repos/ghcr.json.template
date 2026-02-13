@@ -1,0 +1,38 @@
+{
+  "name": "ghcr",
+  "online": true,
+  "storage": {
+    "blobStoreName": "default",
+    "strictContentTypeValidation": true
+  },
+  "docker": {
+    "v1Enabled": false,
+    "forceBasicAuth": false
+  },
+  "proxy": {
+    "remoteUrl": "https://ghcr.io",
+    "contentMaxAge": 1440,
+    "metadataMaxAge": 0
+  },
+  "dockerProxy": {
+    "indexType": "REGISTRY",
+    "indexUrl": "https://ghcr.io/v2/"
+  },
+  "httpClient": {
+    "blocked": false,
+    "autoBlock": true,
+    "connection": {
+      "retries": 3,
+      "userAgentSuffix": "ghcr-proxy"
+    },
+    "authentication": {
+      "type": "username",
+      "username": "__USERNAME__",
+      "password": "__PASSWORD__"
+    }
+  },
+  "negativeCache": {
+    "enabled": true,
+    "timeToLive": 1440
+  }
+}

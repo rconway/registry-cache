@@ -1,0 +1,64 @@
+services:
+
+  nexus-init-pre:
+    image: alpine:latest
+    container_name: nexus-init-pre
+    user: "200:200"
+    entrypoint: ["/bin/sh", "/config/init-pre.sh"]
+    volumes:
+      - ${PWD}/nexus-data:/nexus-data
+      - ${PWD}/nexus-config:/config
+    networks:
+      - registry-cache
+    restart: "no"
+
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
+    depends_on:
+      nexus-init-pre:
+        condition: service_completed_successfully
+    networks:
+      - registry-cache
+    ports:
+      - "8081:8081"
+      - "5000:5000"
+    volumes:
+      - ${PWD}/nexus-data:/nexus-data
+    restart: unless-stopped
+
+  nexus-init-post:
+    image: alpine:latest
+    container_name: nexus-init-post
+    depends_on:
+      nexus:
+        condition: service_started
+    entrypoint: ["/bin/sh", "/config/init-post.sh"]
+    networks:
+      - registry-cache
+    volumes:
+      - ${PWD}/nexus-data:/nexus-data
+      - ${PWD}/nexus-config:/config
+    secrets:
+      - admin-password
+      - dockerhub-username
+      - dockerhub-token
+      - ghcr-username
+      - ghcr-token
+    restart: "no"
+
+secrets:
+  admin-password:
+    file: ./secrets/admin-password
+  dockerhub-username:
+    file: ./secrets/dockerhub-username
+  dockerhub-token:
+    file: ./secrets/dockerhub-token
+  ghcr-username:
+    file: ./secrets/ghcr-username
+  ghcr-token:
+    file: ./secrets/ghcr-token
+
+networks:
+  registry-cache:
+    name: registry-cache
