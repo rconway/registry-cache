@@ -9,8 +9,8 @@ onExit() {
 }
 trap onExit EXIT
 
-mkdir -p nexus-data
-sudo chown 200:200 nexus-data
+mkdir -p dockerhub
+mkdir -p ghcr
 
 if [ "$1" = "down" ]; then
   echo "Shutting down..."
@@ -20,14 +20,8 @@ elif [ "$1" = "restart" ]; then
   docker-compose pull
   docker-compose down
   docker-compose up -d
-  echo "Waiting for init containers to complete..."
-  docker wait nexus-init-pre nexus-init-post 2>/dev/null || true
-  docker rm nexus-init-pre nexus-init-post 2>/dev/null || true
 else
   echo "Running..."
   docker-compose pull
   docker-compose up -d
-  echo "Waiting for init containers to complete..."
-  docker wait nexus-init-pre nexus-init-post 2>/dev/null || true
-  docker rm nexus-init-pre nexus-init-post 2>/dev/null || true
 fi

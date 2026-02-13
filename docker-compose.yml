@@ -1,65 +1,56 @@
 services:
-
-  nexus-init-pre:
-    image: alpine:latest
-    container_name: nexus-init-pre
-    user: "200:200"
-    entrypoint: ["/bin/sh", "/config/init-pre.sh"]
-    volumes:
-      - ${PWD}/nexus-data:/nexus-data
-      - ${PWD}/nexus-config:/config
-    networks:
-      - registry-cache
-    restart: "no"
-
-  nexus:
-    image: sonatype/nexus3:latest
-    container_name: nexus
-    depends_on:
-      nexus-init-pre:
-        condition: service_completed_successfully
+  registry-dockerhub:
+    image: registry:2
+    container_name: registry-dockerhub
     networks:
       - registry-cache
     ports:
-      - "8081:8081"
       - "5000:5000"
     volumes:
-      - ${PWD}/nexus-data:/nexus-data
+      - ${PWD}/dockerhub:/var/lib/registry
+    configs:
+      - source: registry-dockerhub
+        target: /etc/docker/registry/config.yml
     restart: unless-stopped
-
-  nexus-init-post:
-    image: alpine:latest
-    container_name: nexus-init-post
-    depends_on:
-      nexus:
-        condition: service_started
-    entrypoint: ["/bin/sh", "/config/init-post.sh"]
-    environment:
-      - FORCE_REPO_UPDATE=${FORCE_REPO_UPDATE:-false}
+  registry-ghcr:
+    image: registry:2
+    container_name: registry-ghcr
     networks:
       - registry-cache
+    ports:
+      - "5001:5000"
     volumes:
-      - ${PWD}/nexus-data:/nexus-data
-      - ${PWD}/nexus-config:/config
-    secrets:
-      - admin-password
-      - dockerhub-username
-      - dockerhub-token
-      - ghcr-username
-      - ghcr-token
-    restart: "no"
+      - ${PWD}/ghcr:/var/lib/registry
+    configs:
+      - source: registry-ghcr
+        target: /etc/docker/registry/config.yml
+    restart: unless-stopped
 
-secrets:
-  admin-password:
-    file: ./secrets/admin-password
-  dockerhub-username:
-    file: ./secrets/dockerhub-username
-  dockerhub-token:
-    file: ./secrets/dockerhub-token
-  ghcr-username:
-    file: ./secrets/ghcr-username
-  ghcr-token:
-    file: ./secrets/ghcr-token
+configs:
+  registry-dockerhub:
+    content: |
+      version: 0.1
+      proxy:
+        remoteurl: https://registry-1.docker.io
+        username: ${DOCKERHUB_USERNAME}
+        password: ${DOCKERHUB_PASSWORD}
+      storage:
+        filesystem:
+          rootdirectory: /var/lib/registry
+      http:
+        addr: :5000
+  registry-ghcr:
+    content: |
+      version: 0.1
+      proxy:
+        remoteurl: https://ghcr.io
+        username: ${GHCR_USERNAME}
+        password: ${GHCR_PASSWORD}
+      storage:
+        filesystem:
+          rootdirectory: /var/lib/registry
+      http:
+        addr: :5000
 
 networks:
   registry-cache:
