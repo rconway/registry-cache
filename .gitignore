@@ -1,0 +1,9 @@
+# Local secrets - never commit actual credential values
+secrets/*
+!secrets/*.example
+!secrets/.gitkeep
+
+# Local development
+.env
+nexus-data/
+/tmp/

@@ -23,6 +23,10 @@ if [ -z "$NEW_ADMIN_PASSWORD" ]; then
   echo "ERROR: admin-password secret not found"
   exit 1
 fi
+if [ "$NEW_ADMIN_PASSWORD" = "changeme" ]; then
+  echo "ERROR: admin password cannot be the default value 'changeme'"
+  exit 1
+fi
 AUTH="admin:$NEW_ADMIN_PASSWORD"
 
 TEMPLATE_DIR="/config/repos"
