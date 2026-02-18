@@ -9,8 +9,8 @@ onExit() {
 }
 trap onExit EXIT
 
-mkdir -p dockerhub
-mkdir -p ghcr
+mkdir -p data/dockerhub
+mkdir -p data/ghcr
 
 if [ "$1" = "down" ]; then
   echo "Shutting down..."

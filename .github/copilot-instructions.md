@@ -38,7 +38,7 @@ cp .env.example .env
 ./registry-cache.sh                # Default: pull, up -d
 ```
 
-The script ensures storage directories (`./dockerhub`, `./ghcr`) exist before starting.
+The script ensures storage directories (`./data/dockerhub`, `./data/ghcr`) exist before starting.
 
 ### Operations
 ```bash
@@ -111,7 +111,7 @@ Follow this pattern (see README.md "Adding More Registry Caches"):
 - Test changes locally with `./registry-cache.sh restart`
 
 ### Storage & Persistence
-- Cached layers persist in `./dockerhub/` and `./ghcr/` directories (volume mounts)
+- Cached layers persist in `./data/dockerhub/` and `./data/ghcr/` directories (volume mounts)
 - Clearing these directories forces re-download of all cached images
 
 ### Environment & Secrets

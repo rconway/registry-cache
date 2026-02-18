@@ -19,7 +19,7 @@ services:
     networks:
       - registry-cache
     volumes:
-      - ${PWD}/dockerhub:/var/lib/registry
+      - ${PWD}/data/dockerhub:/var/lib/registry
     configs:
       - source: registry-dockerhub
         target: /etc/docker/registry/config.yml
@@ -30,7 +30,7 @@ services:
     networks:
       - registry-cache
     volumes:
-      - ${PWD}/ghcr:/var/lib/registry
+      - ${PWD}/data/ghcr:/var/lib/registry
     configs:
       - source: registry-ghcr
         target: /etc/docker/registry/config.yml
