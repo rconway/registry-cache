@@ -11,7 +11,7 @@ cp .env.example .env
 ```
 
 Edit `.env` to set:
-- `REGISTRY_DOMAIN`: The base domain for virtual hosts (e.g., `reg.example.com`)
+- `REGISTRY_DOMAIN`: The base domain for virtual hosts (e.g., `registry.example.com`)
 - `DOCKERHUB_USERNAME` / `DOCKERHUB_PASSWORD`: Credentials for docker.io access
 - `GHCR_USERNAME` / `GHCR_PASSWORD`: Credentials for ghcr.io access
 
@@ -21,7 +21,7 @@ Edit `.env` to set:
 - **registry-dockerhub** (internal): Caches layers from `docker.io`
 - **registry-ghcr** (internal): Caches layers from `ghcr.io`
 
-Requests are routed based on DNS virtual hostnames (e.g., `docker.io.reg.rconway.uk`, `ghcr.io.reg.rconway.uk`), which all resolve to the nginx proxy IP. The Host header in HTTP requests allows nginx to route each request to the correct upstream registry cache.
+Requests are routed based on DNS virtual hostnames (e.g., `docker.io.registry.example.com`, `ghcr.io.registry.example.com`), which all resolve to the nginx proxy IP. The Host header in HTTP requests allows nginx to route each request to the correct upstream registry cache.
 
 ## DNS Configuration
 
@@ -103,12 +103,12 @@ To use the registry cache with the Docker daemon, update `/etc/docker/daemon.jso
 }
 ```
 
-Replace `${REGISTRY_DOMAIN}` with your configured domain (e.g., `reg.c0a800e9.nip.io` for the nip.io example).
+Replace `${REGISTRY_DOMAIN}` with your configured domain (e.g., `registry.c0a800e9.nip.io` using nip.io for local testing).
 
 Restart Docker for changes to take effect:
 
 ```bash
-sudo systemctl restart docker
+sudo systemctl daemon-reload && sudo systemctl restart docker
 ```
 
 Now when you run `docker pull` commands, they will be cached by the registry-cache proxy.
