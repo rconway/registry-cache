@@ -1,11 +1,23 @@
 services:
+  registry-cache:
+    image: nginx:latest
+    container_name: registry-cache-proxy
+    networks:
+      - registry-cache
+    ports:
+      - "5000:5000"
+    configs:
+      - source: nginx-config
+        target: /etc/nginx/nginx.conf
+    depends_on:
+      - registry-dockerhub
+      - registry-ghcr
+    restart: unless-stopped
   registry-dockerhub:
     image: registry:2
     container_name: registry-dockerhub
     networks:
       - registry-cache
-    ports:
-      - "5000:5000"
     volumes:
       - ${PWD}/dockerhub:/var/lib/registry
     configs:
@@ -17,8 +29,6 @@ services:
     container_name: registry-ghcr
     networks:
       - registry-cache
-    ports:
-      - "5001:5000"
     volumes:
       - ${PWD}/ghcr:/var/lib/registry
     configs:
@@ -27,6 +37,57 @@ services:
     restart: unless-stopped
 
 configs:
+  nginx-config:
+    content: |
+      user nginx;
+      worker_processes auto;
+      error_log /var/log/nginx/error.log warn;
+      pid /var/run/nginx.pid;
+      events {
+        worker_connections 1024;
+      }
+      http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        log_format main '$$remote_addr - $$remote_user [$$time_local] "$$request" '
+                        '$$status $$body_bytes_sent "$$http_referer" '
+                        '"$$http_user_agent" "$$http_x_forwarded_for"';
+        access_log /var/log/nginx/access.log main;
+        tcp_nopush on;
+        keepalive_timeout 600;
+
+        # Upstream backends
+        upstream dockerhub_backend {
+          server registry-dockerhub:5000;
+        }
+        upstream ghcr_backend {
+          server registry-ghcr:5000;
+        }
+
+        # Map Host header to backend based on virtual host names
+        map $$http_host $$backend {
+          "docker.io.${REGISTRY_DOMAIN}:5000" dockerhub_backend;
+          "ghcr.io.${REGISTRY_DOMAIN}:5000" ghcr_backend;
+        }
+
+        # Registry proxy server
+        server {
+          listen 5000;
+          server_name _;
+          client_max_body_size 0;
+
+          location / {
+            proxy_pass http://$$backend;
+            proxy_set_header Host $$http_host;
+            proxy_set_header X-Real-IP $$remote_addr;
+            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $$scheme;
+            proxy_buffering off;
+            proxy_read_timeout 900s;
+            proxy_connect_timeout 75s;
+          }
+        }
+      }
   registry-dockerhub:
     content: |
       version: 0.1
