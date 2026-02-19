@@ -140,6 +140,56 @@ sudo systemctl daemon-reload && sudo systemctl restart docker
 
 Now when you run `docker pull` commands, they will be cached by the registry-cache proxy.
 
+## Benchmark Cache Performance
+
+Use the benchmark script to compare cache vs upstream and tag vs digest pulls:
+
+```bash
+./benchmark-cache.sh
+```
+
+This runs timed tests for:
+- `docker pull` upstream tag vs cache tag
+- `docker pull` upstream digest vs cache digest
+- `curl` blob download speed from cache vs upstream
+
+At the end of each run, it also prints a `[summary]` section with aggregate stats (`avg`, `median`, `p95`, `min`, `max`) so transient outliers are easy to spot.
+
+Useful options:
+
+```bash
+./benchmark-cache.sh --pulls 3 --prune-between
+./benchmark-cache.sh --cache-host docker.io.<your-domain>:5000 --repo library/nginx --tag latest --pulls 3
+```
+
+Environment overrides are also supported: `CACHE_HOST`, `REPO`, `TAG`, `PULLS`, `PRUNE_BETWEEN`.
+
+## Compare Local Path vs CDN
+
+Use the path comparison script from a client machine to isolate whether cache performance is limited by local network path quality:
+
+```bash
+./compare-paths.sh --cache-host docker.io.<your-domain>:5000 --runs 3
+```
+
+This runs:
+- `iperf3` single stream, parallel (`-P 4`), and reverse (`-R -P 4`) to the cache host
+- `curl` A/B tests comparing cache blob speed vs a public CDN file
+- Per-run output and average summaries for both cache and CDN transfers
+
+Useful options:
+
+```bash
+./compare-paths.sh --cache-host 192.168.0.53:5001 --runs 5
+./compare-paths.sh --cache-host 192.168.0.53:5001 --cdn-url https://proof.ovh.net/files/100Mb.dat --runs 3
+./compare-paths.sh --cache-host 192.168.0.53:5001 --skip-iperf --runs 3
+```
+
+Interpretation guidelines:
+- If cache speed is close to `iperf3` throughput, the local path to cache is the limit
+- If cache speed is much lower than `iperf3`, investigate cache host NIC/cable/switch/CPU/disk
+- If CDN speed is much higher than cache speed, the local path to cache is likely the bottleneck
+
 ## Adding More Registry Caches
 
 To add caching for a new registry:
