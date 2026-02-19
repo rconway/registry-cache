@@ -88,6 +88,31 @@ k3d cluster create <cluster-name> \
   ...
 ```
 
+**Update `registries.yaml` in an existing running cluster:**
+
+`k3d` applies `--registry-config` at cluster/node creation time. To update a running cluster, copy the new config into each k3d node and restart the nodes so `containerd` reloads it.
+
+```bash
+CLUSTER=<cluster-name>
+
+# Copy updated registries.yaml into all cluster nodes
+for n in $(docker ps --filter "label=io.x-k3d.cluster=$CLUSTER" --format '{{.Names}}'); do
+  docker cp registries.yaml "$n:/etc/rancher/k3s/registries.yaml"
+done
+
+# Restart the cluster so k3s/containerd reloads registry config
+k3d cluster stop "$CLUSTER"
+k3d cluster start "$CLUSTER"
+```
+
+Verify on a node:
+
+```bash
+docker exec k3d-<cluster-name>-server-0 cat /etc/rancher/k3s/registries.yaml
+```
+
+If you prefer a clean re-apply, recreate the cluster with `--registry-config registries.yaml`.
+
 **Alternative networking:** If you prefer to let k3d create its own network, add the `registry-cache` container to the k3d cluster's network after creation:
 
 ```bash
