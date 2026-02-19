@@ -11,6 +11,7 @@ trap onExit EXIT
 
 mkdir -p data/dockerhub
 mkdir -p data/ghcr
+mkdir -p data/quay
 
 if [ "$1" = "down" ]; then
   echo "Shutting down..."

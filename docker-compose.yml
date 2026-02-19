@@ -12,6 +12,7 @@ services:
     depends_on:
       - registry-dockerhub
       - registry-ghcr
+      - registry-quay
     restart: unless-stopped
   registry-dockerhub:
     image: registry:2
@@ -33,6 +34,17 @@ services:
       - ${PWD}/data/ghcr:/var/lib/registry
     configs:
       - source: registry-ghcr
+        target: /etc/docker/registry/config.yml
+    restart: unless-stopped
+  registry-quay:
+    image: registry:2
+    container_name: registry-quay
+    networks:
+      - registry-cache
+    volumes:
+      - ${PWD}/data/quay:/var/lib/registry
+    configs:
+      - source: registry-quay
         target: /etc/docker/registry/config.yml
     restart: unless-stopped
 
@@ -63,11 +75,15 @@ configs:
         upstream ghcr_backend {
           server registry-ghcr:5000;
         }
+        upstream quay_backend {
+          server registry-quay:5000;
+        }
 
         # Map Host header to backend based on virtual host names
         map $$http_host $$backend {
           "docker.io.${REGISTRY_DOMAIN}:5000" dockerhub_backend;
           "ghcr.io.${REGISTRY_DOMAIN}:5000" ghcr_backend;
+          "quay.io.${REGISTRY_DOMAIN}:5000" quay_backend;
         }
 
         # Registry proxy server
@@ -107,6 +123,18 @@ configs:
         remoteurl: https://ghcr.io
         username: ${GHCR_USERNAME}
         password: ${GHCR_PASSWORD}
+      storage:
+        filesystem:
+          rootdirectory: /var/lib/registry
+      http:
+        addr: :5000
+  registry-quay:
+    content: |
+      version: 0.1
+      proxy:
+        remoteurl: https://quay.io
+        username: ${QUAY_USERNAME}
+        password: ${QUAY_PASSWORD}
       storage:
         filesystem:
           rootdirectory: /var/lib/registry
