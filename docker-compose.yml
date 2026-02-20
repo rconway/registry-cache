@@ -9,6 +9,11 @@ services:
     configs:
       - source: nginx-config
         target: /etc/nginx/nginx.conf
+      - source: registry-cache-entrypoint
+        target: /usr/local/bin/registry-cache-entrypoint.sh
+    command: ["/bin/sh", "/usr/local/bin/registry-cache-entrypoint.sh"]
+    environment:
+      - REGISTRY_DOMAIN=${REGISTRY_DOMAIN}
     depends_on:
       - registry-dockerhub
       - registry-ghcr
@@ -97,6 +102,18 @@ configs:
           server_name _;
           client_max_body_size 0;
 
+          location = /registries.yaml {
+            default_type application/x-yaml;
+            add_header Content-Disposition 'attachment; filename="registries.yaml"' always;
+            alias /tmp/registries.yaml;
+          }
+
+          location = /registries {
+            default_type application/x-yaml;
+            add_header Content-Disposition 'attachment; filename="registries.yaml"' always;
+            alias /tmp/registries.yaml;
+          }
+
           location / {
             proxy_pass http://$$backend;
             proxy_http_version 1.1;
@@ -111,6 +128,47 @@ configs:
           }
         }
       }
+  registry-cache-entrypoint:
+    content: |
+      #!/bin/sh
+      set -eu
+
+      MAP_HOSTS="$$(sed -n '/map \$$http_host \$$backend {/,/}/p' /etc/nginx/nginx.conf | grep -oE '"[^"]+"' | tr -d '"' || true)"
+
+      {
+        echo "mirrors:"
+        echo "$$MAP_HOSTS" | while IFS= read -r host; do
+          [ -n "$$host" ] || continue
+          vhost="$${host%%:*}"
+          suffix=".$${REGISTRY_DOMAIN}"
+          registry="$$vhost"
+          case "$$vhost" in
+            *"$$suffix") registry="$${vhost%$$suffix}" ;;
+          esac
+
+          echo "  \"$$registry\":"
+          echo "    endpoint:"
+          echo "      - http://$$host"
+        done
+
+        echo
+        echo "configs:"
+        echo "$$MAP_HOSTS" | while IFS= read -r host; do
+          [ -n "$$host" ] || continue
+          vhost="$${host%%:*}"
+          suffix=".$${REGISTRY_DOMAIN}"
+          registry="$$vhost"
+          case "$$vhost" in
+            *"$$suffix") registry="$${vhost%$$suffix}" ;;
+          esac
+
+          echo "  \"$$registry\":"
+          echo "    tls:"
+          echo "      insecure: true"
+        done
+      } > /tmp/registries.yaml
+
+      exec nginx -g 'daemon off;'
   registry-dockerhub:
     content: |
       version: 0.1

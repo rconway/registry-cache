@@ -39,7 +39,21 @@ Replace `<your-domain>` with the value of `REGISTRY_DOMAIN` from your `.env` fil
 
 ## Configure k3d Cluster with containerd
 
-Create a `registries.yaml` that points to the virtual host endpoints:
+Generate `registries.yaml` directly from the deployed proxy (source of truth):
+
+```bash
+./registry-cache.sh registries > registries.yaml
+```
+
+You can also fetch it remotely from the proxy:
+
+```bash
+curl -fsSL http://<proxy-ip>:5000/registries.yaml -o registries.yaml
+```
+
+This keeps the k3d/containerd mirror config synchronized with the nginx virtual host routing currently deployed in `docker-compose.yml`.
+
+Generated example:
 
 **registries.yaml:**
 
@@ -199,6 +213,7 @@ To add caching for a new registry:
 3. Add an upstream block to the nginx config with the container name
 4. Add a map entry in the nginx `map $http_host $backend` block (e.g., `"quay.io.${REGISTRY_DOMAIN}:5000" quay_backend;`)
 5. Update k3d `registries.yaml` for any clusters that need to use the new registry
+  - Re-generate from the running proxy: `./registry-cache.sh registries > registries.yaml`
 
 The single nginx endpoint and virtual host approach means:
 - Existing k3d clusters with unmapped registries will automatically fall back to pulling directly from upstream
