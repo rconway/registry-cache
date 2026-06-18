@@ -26,7 +26,6 @@ if [[ -z "${REGISTRY_DOMAIN}" ]]; then
   REGISTRY_DOMAIN="registry.${NIP_ADDRESS}"
 fi
 export REGISTRY_DOMAIN
-echo "Using REGISTRY_DOMAIN=${REGISTRY_DOMAIN}"
 
 if [ "$1" = "registries" ]; then
   URL="${REGISTRIES_URL:-http://${REGISTRY_DOMAIN}:5000/registries.yaml}"
@@ -42,11 +41,13 @@ elif [ "$1" = "down" ]; then
   docker-compose down
 elif [ "$1" = "restart" ]; then
   echo "Restarting..."
+  echo "Using REGISTRY_DOMAIN=${REGISTRY_DOMAIN}"
   docker-compose pull
   docker-compose down
   docker-compose up -d
 else
   echo "Running..."
+  echo "Using REGISTRY_DOMAIN=${REGISTRY_DOMAIN}"
   docker-compose pull
   docker-compose up -d
 fi
