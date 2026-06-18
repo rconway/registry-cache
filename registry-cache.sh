@@ -9,12 +9,15 @@ onExit() {
 }
 trap onExit EXIT
 
+[[ -e .env ]] && source .env
+
 mkdir -p data/dockerhub
 mkdir -p data/ghcr
 mkdir -p data/quay
 
 if [ "$1" = "registries" ]; then
-  URL="${REGISTRIES_URL:-http://127.0.0.1:5000/registries.yaml}"
+  REGISTRY_DOMAIN="${REGISTRY_DOMAIN:-reg.127.0.0.1.nip.io}"
+  URL="${REGISTRIES_URL:-http://${REGISTRY_DOMAIN}:5000/registries.yaml}"
 
   if [ -n "$2" ]; then
     curl -fsSL "$URL" > "$2"
