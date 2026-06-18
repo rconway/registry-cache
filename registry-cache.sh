@@ -15,8 +15,20 @@ mkdir -p data/dockerhub
 mkdir -p data/ghcr
 mkdir -p data/quay
 
+if [[ -z "${REGISTRY_DOMAIN}" ]]; then
+  if command -v ip &>/dev/null; then
+    IP_ADDRESS="`ip route get 1.1.1.1 2>/dev/null | awk '{print $7}'`"
+  elif command -v hostname &>/dev/null; then
+    IP_ADDRESS="`hostname -i 2>/dev/null | awk '{ for(i=1; i<=NF; i++){if($i !~ /^127\./){print $i;exit}}}'`"
+  fi
+  IP_ADDRESS="${IP_ADDRESS:-127.0.0.1}"
+  NIP_ADDRESS="`echo $IP_ADDRESS | awk '{split($1,a,".");printf("%02x%02x%02x%02x.nip.io\n",a[1],a[2],a[3],a[4]);exit}'`"
+  REGISTRY_DOMAIN="registry.${NIP_ADDRESS}"
+fi
+export REGISTRY_DOMAIN
+echo "Using REGISTRY_DOMAIN=${REGISTRY_DOMAIN}"
+
 if [ "$1" = "registries" ]; then
-  REGISTRY_DOMAIN="${REGISTRY_DOMAIN:-reg.127.0.0.1.nip.io}"
   URL="${REGISTRIES_URL:-http://${REGISTRY_DOMAIN}:5000/registries.yaml}"
 
   if [ -n "$2" ]; then
