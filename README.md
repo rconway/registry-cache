@@ -37,6 +37,29 @@ quay.io.<your-domain>      A    <proxy-ip>
 
 Replace `<your-domain>` with the value of `REGISTRY_DOMAIN` from your `.env` file.
 
+## Common curl Checks
+
+Use these quick checks to validate proxy behavior from any client:
+
+```bash
+# 1) Validate mapped host routing (expect 200 or registry-specific response)
+curl -si http://<proxy-ip>:5000 -H 'Host: docker.io.<your-domain>'
+
+# 2) Validate unknown host handling (expect 404 JSON)
+curl -si http://<proxy-ip>:5000 -H 'Host: unknown.<your-domain>'
+
+# 3) Fetch generated k3d/containerd mirror config
+curl -fsSL http://<proxy-ip>:5000/registries.yaml
+```
+
+Tip: If a mapped host returns `502`, check whether the corresponding backend cache container is running.
+
+Safe backend-outage simulation (always restarts the backend):
+
+```bash
+trap 'docker compose start registry-quay >/dev/null 2>&1' EXIT; docker compose stop registry-quay && curl -si http://<proxy-ip>:5000 -H 'Host: quay.io.<your-domain>'
+```
+
 ## Configure k3d Cluster with containerd
 
 Generate `registries.yaml` directly from the deployed proxy (source of truth):
@@ -211,11 +234,34 @@ To add caching for a new registry:
 1. Add a new DNS virtual host entry (e.g., `quay.io.<your-domain>` → proxy IP)
 2. Add a new registry service to `docker-compose.yml` following the existing pattern
 3. Add an upstream block to the nginx config with the container name
-4. Add a map entry in the nginx `map $http_host $backend` block (e.g., `"quay.io.${REGISTRY_DOMAIN}:5000" quay_backend;`)
+4. Add a map entry in the nginx `map $host $backend` block (e.g., `"quay.io.${REGISTRY_DOMAIN}" quay_backend;`)
 5. Update k3d `registries.yaml` for any clusters that need to use the new registry
   - Re-generate from the running proxy: `./registry-cache.sh registries > registries.yaml`
 
 The single nginx endpoint and virtual host approach means:
 - Existing k3d clusters with unmapped registries will automatically fall back to pulling directly from upstream
 - New clusters can immediately benefit from any new cache added to docker-compose.yml by updating their registries.yaml
+
+## Proxy Error Responses
+
+The nginx proxy returns explicit JSON errors for routing failures:
+
+- Unknown/unmapped virtual host: `404 Not Found`
+- Mapped host with unavailable backend cache: `502 Bad Gateway`
+
+Examples:
+
+```bash
+# Unknown host (not present in map $host $backend)
+curl -si http://<proxy-ip>:5000 -H 'Host: unknown.<your-domain>'
+
+# Known host with backend unavailable (for example if that cache container is down)
+curl -si http://<proxy-ip>:5000 -H 'Host: quay.io.<your-domain>'
+```
+
+Expected JSON response shape:
+
+```json
+{"error":"<message>","host":"<requested-host>"}
+```
 

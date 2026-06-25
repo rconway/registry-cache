@@ -89,11 +89,13 @@ configs:
           keepalive 64;
         }
 
-        # Map Host header to backend based on virtual host names
-        map $$http_host $$backend {
-          "docker.io.${REGISTRY_DOMAIN}:5000" dockerhub_backend;
-          "ghcr.io.${REGISTRY_DOMAIN}:5000" ghcr_backend;
-          "quay.io.${REGISTRY_DOMAIN}:5000" quay_backend;
+        # Map requested host to backend based on virtual host names.
+        # Use $$host so routing works whether Host includes an explicit port or not.
+        map $$host $$backend {
+          default "";
+          "docker.io.${REGISTRY_DOMAIN}" dockerhub_backend;
+          "ghcr.io.${REGISTRY_DOMAIN}" ghcr_backend;
+          "quay.io.${REGISTRY_DOMAIN}" quay_backend;
         }
 
         # Registry proxy server
@@ -101,6 +103,20 @@ configs:
           listen 5000;
           server_name _;
           client_max_body_size 0;
+          proxy_intercept_errors on;
+
+          error_page 418 = @unknown_registry_host;
+          error_page 502 503 504 = @backend_unavailable;
+
+          location @unknown_registry_host {
+            default_type application/json;
+            return 404 '{"error":"unknown registry host","host":"$$host"}';
+          }
+
+          location @backend_unavailable {
+            default_type application/json;
+            return 502 '{"error":"registry backend unavailable","host":"$$host"}';
+          }
 
           location = /registries.yaml {
             default_type application/x-yaml;
@@ -115,6 +131,10 @@ configs:
           }
 
           location / {
+            if ($$backend = "") {
+              return 418;
+            }
+
             proxy_pass http://$$backend;
             proxy_http_version 1.1;
             proxy_set_header Connection "";
@@ -133,7 +153,7 @@ configs:
       #!/bin/sh
       set -eu
 
-      MAP_HOSTS="$$(sed -n '/map \$$http_host \$$backend {/,/}/p' /etc/nginx/nginx.conf | grep -oE '"[^"]+"' | tr -d '"' || true)"
+      MAP_HOSTS="$$(sed -n '/map \$$host \$$backend {/,/}/p' /etc/nginx/nginx.conf | grep -oE '"[^"]+"' | tr -d '"' || true)"
 
       {
         echo "mirrors:"
@@ -148,7 +168,7 @@ configs:
 
           echo "  \"$$registry\":"
           echo "    endpoint:"
-          echo "      - http://$$host"
+          echo "      - http://$$host:5000"
         done
 
         echo
